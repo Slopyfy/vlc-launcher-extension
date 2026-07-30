@@ -7,7 +7,7 @@
 
 ## Our Contributors
 
-- Design and artitecture: Deepseek
+- Design and architecture: Deepseek
 - Coding: Deepseek + Gemini
 - Graphics: Gemini
 - README: Deepsek
