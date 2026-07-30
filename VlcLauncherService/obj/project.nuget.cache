@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "CN8aQFeQtTM=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Binarique\\Documents\\Sloproject\\vlc-launcher-extension\\VlcLauncherService\\VlcLauncherService.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Binarique\\.nuget\\packages\\microsoft.extensions.hosting.windowsservices\\10.0.10\\microsoft.extensions.hosting.windowsservices.10.0.10.nupkg.sha512",
+    "C:\\Users\\Binarique\\.nuget\\packages\\system.serviceprocess.servicecontroller\\10.0.10\\system.serviceprocess.servicecontroller.10.0.10.nupkg.sha512"
+  ],
+  "logs": []
+}

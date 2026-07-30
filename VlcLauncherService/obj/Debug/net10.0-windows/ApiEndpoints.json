@@ -1,0 +1,50 @@
+[
+  {
+    "ContainingType": "VlcServer\u002B\u003C\u003Ec",
+    "Method": "\u003CStartAsync\u003Eb__7_2",
+    "RelativePath": "formats",
+    "HttpMethod": "GET",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "VlcServer\u002B\u003C\u003Ec",
+    "Method": "\u003CStartAsync\u003Eb__7_4",
+    "RelativePath": "launch",
+    "HttpMethod": "POST",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  },
+  {
+    "ContainingType": "VlcServer\u002B\u003C\u003Ec",
+    "Method": "\u003CStartAsync\u003Eb__7_3",
+    "RelativePath": "probe",
+    "HttpMethod": "POST",
+    "IsController": false,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": [
+      {
+        "Type": "System.Void",
+        "MediaTypes": [],
+        "StatusCode": 200
+      }
+    ]
+  }
+]

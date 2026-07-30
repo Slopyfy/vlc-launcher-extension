@@ -1,0 +1,11 @@
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\VlcLauncherService.exe
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\appsettings.Development.json
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\appsettings.json
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\dotnet-tools.json
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\VlcLauncherService.dll
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\VlcLauncherService.deps.json
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\VlcLauncherService.runtimeconfig.json
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\VlcLauncherService.pdb
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\Microsoft.Extensions.Hosting.WindowsServices.dll
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\System.ServiceProcess.ServiceController.dll
+C:\Users\Binarique\Documents\Sloproject\VlcLauncherService\obj\Release\net10.0\PubTmp\Out\runtimes\win\lib\net10.0\System.ServiceProcess.ServiceController.dll
