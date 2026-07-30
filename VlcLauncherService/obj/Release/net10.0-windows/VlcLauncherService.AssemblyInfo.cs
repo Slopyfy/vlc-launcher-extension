@@ -17,7 +17,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCopyrightAttribute("Copyright © Binarique Ltd 2026")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("Launch streaming media in VLC from your browser")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.1.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0+bb9729fc31968958998665bd431c5da565c8bf9a")]
 [assembly: System.Reflection.AssemblyProductAttribute("VLC Launcher Service")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VlcLauncherService")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.1.0")]

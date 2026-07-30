@@ -2,8 +2,8 @@
 <!-- https://go.microsoft.com/fwlink/?LinkID=208121. -->
 <Project>
   <PropertyGroup>
-    <_PublishTargetUrl>C:\Users\Binarique\Documents\Sloproject\publish</_PublishTargetUrl>
-    <History>True|2026-07-30T15:22:57.2452114Z||;True|2026-07-29T22:06:23.3184178+03:00||;True|2026-07-29T18:17:21.3083720+03:00||;True|2026-07-29T18:16:50.3840420+03:00||;True|2026-07-29T15:26:02.1145345+03:00||;True|2026-07-29T15:11:49.5509530+03:00||;</History>
+    <_PublishTargetUrl>C:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish</_PublishTargetUrl>
+    <History>True|2026-07-30T18:39:43.9723687Z||;True|2026-07-30T18:22:57.2452114+03:00||;True|2026-07-29T22:06:23.3184178+03:00||;True|2026-07-29T18:17:21.3083720+03:00||;True|2026-07-29T18:16:50.3840420+03:00||;True|2026-07-29T15:26:02.1145345+03:00||;True|2026-07-29T15:11:49.5509530+03:00||;</History>
     <LastFailureDetails />
   </PropertyGroup>
 </Project>
