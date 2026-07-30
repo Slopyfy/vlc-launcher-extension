@@ -2,7 +2,7 @@ VlcLauncherService/bin/
 publish/
 sloproject/
 dist/
-./build.ps1
-./old.iss
-./package.ps1
-./Sloproject.rar
+/build.ps1
+/old.iss
+/package.ps1
+/Sloproject.rar
