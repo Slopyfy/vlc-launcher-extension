@@ -3,7 +3,9 @@
 
 ## Disclaimer
  - All the wierdness is intended, that is how AI works
+ - I pushed directly to master because i trust my AI models that they have done a good job, i hope you test it out in production and find out
 
+## Our Contributors
 
 - Design and artitecture: Deepseek
 - Coding: Deepseek + Gemini
@@ -64,6 +66,7 @@ Chrome Extension (MV3)          Windows Service (.NET 10)
 
 - Open in Visual Studio 2022 or 2026 and Compile
 - or installed the already compiled binaries in the release section
+  [https://github.com/Slopyfy/vlc-launcher-extension/releases/](https://github.com/Slopyfy/vlc-launcher-extension/releases/)
 
  Or 
 
