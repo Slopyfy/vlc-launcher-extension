@@ -9,9 +9,9 @@
     <ApplicationIcon>..\icons\icon128.ico</ApplicationIcon>
     <Company>Binarique Ltd</Company>
     <Copyright>Copyright © Binarique Ltd 2026</Copyright>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0</AssemblyVersion>
-    <FileVersion>0.1.0</FileVersion>
+    <Version>0.2.0</Version>
+    <AssemblyVersion>0.2.0</AssemblyVersion>
+    <FileVersion>0.2.0</FileVersion>
     <Product>VLC Launcher Service</Product>
     <Description>Launch streaming media in VLC from your browser</Description>
     <Authors>Binarique Ltd</Authors>

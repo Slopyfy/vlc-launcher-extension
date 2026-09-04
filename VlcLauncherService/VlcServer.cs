@@ -20,7 +20,12 @@ public static class VlcServer
 
     private static readonly ConcurrentDictionary<string, (string, string?)> ResCache = new();
     private static readonly ConcurrentDictionary<string, List<FormatInfo>> FmtCache = new();
+    private static readonly ConcurrentDictionary<string, Lazy<Task<List<FormatInfo>>>> FmtTasks = new();
+    private static readonly ConcurrentDictionary<string, byte> Probing = new();
     private static bool _ffmpegOk;
+
+    // Browser-like UA so protected CDN/HLS links accept VLC's requests.
+    private const string DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
     public static async Task StartAsync(int port = 8765)
     {
@@ -79,9 +84,13 @@ public static class VlcServer
                 return Results.Ok(cachedFormats);
             }
 
+            // Deduplicate in-flight requests: the popup polls every few seconds,
+            // so without this each poll would spawn another yt-dlp process.
             LogCallback?.Invoke($"[Formats] Asking yt-dlp to extract qualities for: {url}");
-            var formats = await GetYtDlpFormatsAsync(url);
+            var lazy = FmtTasks.GetOrAdd(url, _ => new Lazy<Task<List<FormatInfo>>>(() => GetYtDlpFormatsAsync(url)));
+            var formats = await lazy.Value;
             FmtCache[url] = formats;
+            FmtTasks.TryRemove(url, out _);
 
             LogCallback?.Invoke($"[Formats] Extracted {formats.Count} qualities.");
             return Results.Ok(formats);
@@ -96,10 +105,14 @@ public static class VlcServer
 
             if (string.IsNullOrEmpty(j?.Url)) return Results.BadRequest(new { error = "Missing url" });
 
-            if (!ResCache.ContainsKey(j.Url))
+            if (!ResCache.ContainsKey(j.Url) && Probing.TryAdd(j.Url, 0))
             {
                 LogCallback?.Invoke($"[Probe] New URL detected, caching streams in background: {j.Url}");
-                _ = Task.Run(async () => await ResolveUrlAsync(j.Url));
+                _ = Task.Run(async () =>
+                {
+                    try { await ResolveUrlAsync(j.Url); }
+                    finally { Probing.TryRemove(j.Url, out _); }
+                });
             }
             return Results.Ok(new { probing = true });
         });
@@ -119,6 +132,8 @@ public static class VlcServer
             bool fullscreen = j?.Fullscreen ?? false;
             bool loop = j?.Loop ?? false;
             string? speed = j?.Speed;
+            string? referer = j?.Referer;
+            string? userAgent = j?.UserAgent;
 
             if (string.IsNullOrWhiteSpace(rawUrl))
                 return Results.BadRequest(new { error = "No URL provided." });
@@ -154,6 +169,15 @@ public static class VlcServer
             argsList.Add("--no-video-title-show");
             argsList.Add("--one-instance");
             argsList.Add("--play-and-exit");
+
+            // Replay the browser's headers so protected HLS/CDN links don't
+            // reject VLC. IDM works on the same URL because it sends a browser
+            // User-Agent (and usually a Referer) — VLC's defaults are blocked.
+            string effectiveUserAgent = !string.IsNullOrWhiteSpace(userAgent) ? userAgent : DefaultUserAgent;
+            argsList.Add($"--http-user-agent=\"{effectiveUserAgent}\"");
+
+            if (!string.IsNullOrWhiteSpace(referer))
+                argsList.Add($"--http-referrer=\"{referer}\"");
 
             if (alwaysOnTop) argsList.Add("--video-on-top");
             if (fullscreen) argsList.Add("--fullscreen");
@@ -254,7 +278,7 @@ public static class VlcServer
             var psi = new ProcessStartInfo
             {
                 FileName = GetYtDlpPath(),
-                Arguments = "--no-playlist -g --get-title \"" + url + "\"",
+                Arguments = "--no-playlist --js-runtimes node -g --get-title \"" + url + "\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true, // Prevent deadlocks
                 UseShellExecute = false,
@@ -265,7 +289,16 @@ public static class VlcServer
 
             var outTask = p.StandardOutput.ReadToEndAsync();
             var errTask = p.StandardError.ReadToEndAsync();
-            await Task.WhenAll(outTask, errTask, p.WaitForExitAsync());
+            try
+            {
+                await Task.WhenAll(outTask, errTask, p.WaitForExitAsync()).WaitAsync(TimeSpan.FromSeconds(45));
+            }
+            catch (TimeoutException)
+            {
+                try { p.Kill(entireProcessTree: true); } catch { }
+                LogCallback?.Invoke("[yt-dlp Background] Timed out after 45s.");
+                return (url, null);
+            }
 
             var stdout = outTask.Result;
             var stderr = errTask.Result;
@@ -332,8 +365,11 @@ public static class VlcServer
 
     private static async Task<string[]> ResolveDirectStreamUrlsAsync(string url, string? formatId)
     {
+        // For video-only formats: <id>+bestaudio (gets separate video + audio URLs).
+        // For combined/audio formats (e.g. 18, 140): fall back to <id> alone,
+        // otherwise "18+bestaudio" is invalid and yt-dlp returns nothing.
         string formatArg = !string.IsNullOrWhiteSpace(formatId)
-            ? $"-f \"{formatId}+bestaudio[ext=m4a]/{formatId}+bestaudio/best\""
+            ? $"-f \"{formatId}+bestaudio[ext=m4a]/{formatId}+bestaudio/{formatId}/best\""
             : "-f \"bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best\"";
 
         LogCallback?.Invoke($"[yt-dlp] Extracting direct URLs with args: {formatArg}");
@@ -342,7 +378,8 @@ public static class VlcServer
         {
             FileName = GetYtDlpPath(),
             // THE FIX: Added --no-playlist so it doesn't try to parse 50 videos at once
-            Arguments = $"--no-playlist -g {formatArg} \"{url}\"",
+            // --js-runtimes node lets yt-dlp solve YouTube's JS challenges (no deno needed)
+            Arguments = $"--no-playlist --js-runtimes node -g {formatArg} \"{url}\"",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -355,7 +392,16 @@ public static class VlcServer
         // Read output and error asynchronously to prevent buffer deadlocks
         var outTask = proc.StandardOutput.ReadToEndAsync();
         var errTask = proc.StandardError.ReadToEndAsync();
-        await Task.WhenAll(outTask, errTask, proc.WaitForExitAsync());
+        try
+        {
+            await Task.WhenAll(outTask, errTask, proc.WaitForExitAsync()).WaitAsync(TimeSpan.FromSeconds(45));
+        }
+        catch (TimeoutException)
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { }
+            LogCallback?.Invoke("[yt-dlp] Timed out after 45s resolving stream URLs.");
+            return Array.Empty<string>();
+        }
 
         string output = outTask.Result;
         string error = errTask.Result;
@@ -374,7 +420,7 @@ public static class VlcServer
             var psi = new ProcessStartInfo
             {
                 FileName = GetYtDlpPath(),
-                Arguments = "--no-playlist -j \"" + url + "\"",
+                Arguments = "--no-playlist --js-runtimes node -j \"" + url + "\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true, // Critical for preventing deadlocks
                 UseShellExecute = false,
@@ -386,7 +432,16 @@ public static class VlcServer
 
             var outTask = p.StandardOutput.ReadToEndAsync();
             var errTask = p.StandardError.ReadToEndAsync();
-            await Task.WhenAll(outTask, errTask, p.WaitForExitAsync());
+            try
+            {
+                await Task.WhenAll(outTask, errTask, p.WaitForExitAsync()).WaitAsync(TimeSpan.FromSeconds(45));
+            }
+            catch (TimeoutException)
+            {
+                try { p.Kill(entireProcessTree: true); } catch { }
+                LogCallback?.Invoke("[yt-dlp Formats] Timed out after 45s.");
+                return new();
+            }
 
             string stdout = outTask.Result;
             string stderr = errTask.Result;
@@ -463,6 +518,8 @@ public class LaunchReqModel
     public string? Speed { get; set; }
     public string? Format { get; set; }
     public string? FormatId { get; set; }
+    public string? Referer { get; set; }
+    public string? UserAgent { get; set; }
 }
 
 public class FormatInfo

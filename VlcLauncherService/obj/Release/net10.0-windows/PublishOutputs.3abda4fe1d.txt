@@ -1,0 +1,11 @@
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\VlcLauncherService.exe
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\appsettings.Development.json
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\appsettings.json
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\dotnet-tools.json
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\VlcLauncherService.dll
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\VlcLauncherService.deps.json
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\VlcLauncherService.runtimeconfig.json
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\VlcLauncherService.pdb
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\Microsoft.Extensions.Hosting.WindowsServices.dll
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\System.ServiceProcess.ServiceController.dll
+c:\Users\Binarique\Documents\Sloproject\vlc-launcher-extension\publish\runtimes\win\lib\net10.0\System.ServiceProcess.ServiceController.dll

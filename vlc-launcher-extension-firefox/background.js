@@ -158,8 +158,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       probeQuality(url);
     }
   },
-  { urls: STREAM_URL_PATTERNS, types: ["xmlhttprequest", "media", "other"] },
-  ["extraHeaders"]
+  { urls: STREAM_URL_PATTERNS, types: ["xmlhttprequest", "media", "other"] }
 );
 
 // Capture the Referer + User-Agent the browser sends with each stream request
@@ -182,7 +181,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
     }
   },
   { urls: STREAM_URL_PATTERNS, types: ["xmlhttprequest", "media", "other"] },
-  ["requestHeaders", "extraHeaders"]
+  ["requestHeaders"]
 );
 
 // ── Pre-probe YouTube etc. via C# service (yt-dlp) ─────────────
