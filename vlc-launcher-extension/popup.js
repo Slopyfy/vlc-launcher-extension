@@ -7,6 +7,29 @@ let pollTimer = null;
 let isPollingActive = false;
 const selectedFormats = new Map();
 
+const SERVICE_SETUP_URL = 'https://github.com/Slopyfy/vlc-launcher-extension/releases/';
+
+function isServiceMissing(err) {
+  return /failed to fetch|networkerror|fetch failed|connection refused|load failed|ERR_CONNECTION/i.test(String(err));
+}
+
+function showServiceBanner() {
+  if (document.getElementById('serviceBanner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'serviceBanner';
+  banner.style.cssText = 'background:#3a1d00;color:#ffb877;border:1px solid #ff9800;border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;line-height:1.5;';
+  banner.innerHTML = '⚠️ <b>VLC Launcher Service</b> isn\'t running.<br>Download & install it from the ' +
+    '<a href="' + SERVICE_SETUP_URL + '" target="_blank" style="color:#ffb877;font-weight:700;">releases page</a>';
+  const ref = document.getElementById('refreshBtn');
+  if (ref) ref.parentNode.insertBefore(banner, ref);
+}
+
+function checkService() {
+  fetch('http://localhost:8765/health', { signal: AbortSignal.timeout(3000) })
+    .then(r => { if (r.ok) { const b = document.getElementById('serviceBanner'); if (b) b.remove(); } })
+    .catch(() => showServiceBanner());
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const tab = await getCurrentTab();
   if (!tab) return;
@@ -38,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   loadHistory();
+  checkService();
   startPolling();
 
   document.getElementById('refreshBtn').addEventListener('click', () => {
@@ -114,35 +138,53 @@ function renderStreams(streams) {
     return;
   }
 
-  // Put the master playlist first — it lets VLC pick a working quality,
-  // which matters when some variants are rejected by the CDN.
+  // Newest-detected first, so a freshly loaded video's links appear on top
+  // even when the page reuses nearly identical signed URLs.
   const ordered = [...streams].sort((a, b) => {
-    const ua = (typeof a === 'string' ? a : a.url || '').toLowerCase();
-    const ub = (typeof b === 'string' ? b : b.url || '').toLowerCase();
-    const ma = ua.includes('master.m3u8') ? 1 : 0;
-    const mb = ub.includes('master.m3u8') ? 1 : 0;
-    return mb - ma;
+    const sa = (typeof a === 'object' && a.seenAt) ? a.seenAt : 0;
+    const sb = (typeof b === 'object' && b.seenAt) ? b.seenAt : 0;
+    return sb - sa;
   });
 
+  const now = Date.now();
   const ul = document.createElement('ul');
   ordered.forEach(s => {
     const url = typeof s === 'string' ? s : s.url;
     const quality = typeof s === 'string' ? null : s.quality;
+    const seenAt = (typeof s === 'object' && s.seenAt) ? s.seenAt : 0;
 
     const li = document.createElement('li');
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;align-items:center;gap:6px;flex:1;min-width:0;';
 
     const isMaster = url.toLowerCase().includes('master.m3u8');
-    const displayTitle = s.title || (isMaster ? 'Master — auto quality' : null);
-    const displayText = displayTitle || midTruncate(url, 24, 20);
+    const snippet = tokenSnippet(url);
+    let displayText;
+    if (s.title) {
+      displayText = s.title;
+    } else if (isMaster) {
+      displayText = 'Master — auto quality' + (snippet ? ' · ' + snippet : '');
+    } else {
+      displayText = smartTruncate(url);
+    }
 
     const span = document.createElement('span');
     span.className = 'url';
     span.textContent = displayText;
     span.title = url;
-    if (displayTitle) span.style.fontWeight = 'bold';
+    if (s.title || isMaster) span.style.fontWeight = 'bold';
     div.appendChild(span);
+
+    // Recency marker so old vs new links are easy to tell apart.
+    const age = ageLabel(seenAt, now);
+    if (age) {
+      const ageSpan = document.createElement('span');
+      ageSpan.textContent = age;
+      ageSpan.style.cssText = (age === 'NEW')
+        ? 'background:#ff9800;color:#111;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;flex:0 0 auto;'
+        : 'color:#888;font-size:10px;flex:0 0 auto;';
+      div.appendChild(ageSpan);
+    }
 
     if (quality) {
       const qLabel = document.createElement('span');
@@ -271,8 +313,14 @@ function launchUrl(url, format = null, onDone = null) {
       status.textContent = '✅ ' + response.message;
       status.style.color = 'green';
     } else {
-      status.textContent = '❌ ' + (response?.error || 'Failed to launch');
+      const err = response?.error || 'Failed to launch';
       status.style.color = 'red';
+      if (isServiceMissing(err)) {
+        status.innerHTML = '❌ ' + err + '<br>Is the VLC Launcher Service running? ' +
+          '<a href="' + SERVICE_SETUP_URL + '" target="_blank">Download it from the releases page</a>';
+      } else {
+        status.textContent = '❌ ' + err;
+      }
     }
   });
 }
@@ -280,6 +328,45 @@ function launchUrl(url, format = null, onDone = null) {
 function midTruncate(url, headLen = 24, tailLen = 20) {
   if (url.length <= headLen + tailLen + 3) return url;
   return url.slice(0, headLen) + '…' + url.slice(-tailLen);
+}
+
+function tokenSnippet(url) {
+  try {
+    const u = new URL(url);
+    const segs = u.pathname.split('/').filter(Boolean);
+    let longest = '';
+    for (const s of segs) { if (s.length > longest.length) longest = s; }
+    if (longest.length >= 16) return longest.slice(0, 8);
+  } catch (e) {}
+  return null;
+}
+
+function smartTruncate(url) {
+  // Reveal the middle of the URL (where signed tokens usually live) so links
+  // that only differ by their token don't all look identical in the list.
+  try {
+    const u = new URL(url);
+    const segs = u.pathname.split('/').filter(Boolean);
+    if (segs.length >= 3) {
+      let longest = '', li = -1;
+      segs.forEach((s, i) => { if (s.length > longest.length) { longest = s; li = i; } });
+      if (longest.length >= 20) {
+        const left = segs.slice(0, li).join('/');
+        const right = segs.slice(li + 1).join('/');
+        return u.host + '/' + left + '/' + longest.slice(0, 12) + '…/' + right;
+      }
+    }
+  } catch (e) {}
+  return midTruncate(url, 26, 16);
+}
+
+function ageLabel(ts, now) {
+  if (!ts) return '';
+  const s = Math.floor((now - ts) / 1000);
+  if (s < 15) return 'NEW';
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s / 60) + 'm';
+  return Math.floor(s / 3600) + 'h';
 }
 
 function saveToHistory(url) {

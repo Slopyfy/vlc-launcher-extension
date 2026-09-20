@@ -1,11 +1,11 @@
 // background.js — VLC Launcher service worker
 
 // ── In-memory state (loaded from session storage on startup) ───
-const state = { netUrls: new Map(), domUrls: new Map(), qualities: new Map(), titles: new Map(), formats: new Map(), referers: new Map(), userAgent: null };
+const state = { netUrls: new Map(), domUrls: new Map(), qualities: new Map(), titles: new Map(), formats: new Map(), referers: new Map(), userAgent: null, seenAt: new Map() };
 
 (async function init() {
   try {
-    const all = await chrome.storage.session.get(['netUrls', 'domUrls', 'qualities', 'titles', 'formats', 'referers', 'userAgent']);
+    const all = await chrome.storage.session.get(['netUrls', 'domUrls', 'qualities', 'titles', 'formats', 'referers', 'userAgent', 'seenAt']);
     if (all.netUrls) state.netUrls = new Map(JSON.parse(all.netUrls));
     if (all.domUrls) state.domUrls = new Map(JSON.parse(all.domUrls));
     if (all.qualities) state.qualities = new Map(JSON.parse(all.qualities));
@@ -13,6 +13,7 @@ const state = { netUrls: new Map(), domUrls: new Map(), qualities: new Map(), ti
     if (all.formats) state.formats = new Map(JSON.parse(all.formats));
     if (all.referers) state.referers = new Map(JSON.parse(all.referers));
     if (all.userAgent) state.userAgent = all.userAgent;
+    if (all.seenAt) state.seenAt = new Map(JSON.parse(all.seenAt));
   } catch {}
 })();
 
@@ -24,7 +25,8 @@ function persist() {
     titles: JSON.stringify([...state.titles]),
     formats: JSON.stringify([...state.formats]),
     referers: JSON.stringify([...state.referers]),
-    userAgent: state.userAgent
+    userAgent: state.userAgent,
+    seenAt: JSON.stringify([...state.seenAt])
   }).catch(() => {});
 }
 
@@ -152,7 +154,11 @@ chrome.webRequest.onBeforeRequest.addListener(
       if (!state.netUrls.has(tabId)) {
         state.netUrls.set(tabId, new Set());
       }
-      state.netUrls.get(tabId).add(url);
+      const set = state.netUrls.get(tabId);
+      if (!set.has(url)) {
+        set.add(url);
+        state.seenAt.set(url, Date.now()); // first-seen time (newest first in list)
+      }
       updateBadge(tabId);
       schedulePersist();
       probeQuality(url);
@@ -251,8 +257,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // If it looks like HLS, kick off a probe for next time
         if (url.toLowerCase().includes('.m3u8')) probeQuality(url);
       }
-      return { url, quality, title: state.titles.get(url) || null };
+      return { url, quality, title: state.titles.get(url) || null, seenAt: state.seenAt.get(url) || 0 };
     });
+    // Newest-detected streams first so a freshly loaded video's links
+    // (which may look nearly identical to old ones) appear on top.
+    streams.sort((a, b) => (b.seenAt || 0) - (a.seenAt || 0));
     sendResponse({ streams });
     return false; // sync
   }
@@ -275,13 +284,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (tabId && request.urls) {
       state.domUrls.set(tabId, new Set(request.urls));
       updateBadge(tabId);
+      // Record first-seen time so the popup can show newest links first.
+      const now = Date.now();
+      for (const u of request.urls) {
+        if (!state.seenAt.has(u)) state.seenAt.set(u, now);
+      }
       // Store display titles (e.g. YouTube video titles)
       if (request.titles) {
         for (const [u, t] of Object.entries(request.titles)) {
           if (t) state.titles.set(u, t);
         }
-        schedulePersist();
       }
+      schedulePersist();
       // Pre-probe YouTube etc. so the stream URL is cached before user clicks Launch
       for (const u of request.urls) {
         if (isVideoPlatformUrl(u)) { probeYtDlp(u); prefetchFormats(u); }

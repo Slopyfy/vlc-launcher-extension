@@ -72,6 +72,9 @@ public static class VlcServer
 
         _webApp.UseCors();
 
+        // ── GET /health ─────────────────────────────────────────────────
+        _webApp.MapGet("/health", () => Results.Ok(new { status = "ok", version = "0.2" }));
+
         // ── GET /formats ────────────────────────────────────────────────
         _webApp.MapGet("/formats", async (HttpContext ctx) =>
         {
