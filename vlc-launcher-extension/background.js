@@ -123,6 +123,12 @@ const STREAM_URL_PATTERNS = [
   "*://*/*.m3u",
   "*://*/*.ism/Manifest",
   "*://*/*.mpegurl",
+  // Video manifests with a query string (e.g. ?token=...)
+  "*://*/*.m3u8?*",
+  "*://*/*.mpd?*",
+  "*://*/*.m3u?*",
+  "*://*/*.ism/Manifest?*",
+  "*://*/*.mpegurl?*",
   // Audio files
   "*://*/*.mp3",
   "*://*/*.wav",
@@ -164,8 +170,9 @@ chrome.webRequest.onBeforeRequest.addListener(
       probeQuality(url);
     }
   },
-  { urls: STREAM_URL_PATTERNS, types: ["xmlhttprequest", "media", "other"] },
-  ["extraHeaders"]
+  // No "types" filter: catch every request whose URL looks like a stream,
+  // including sub_frame/object requests from iframes or embedded players.
+  { urls: STREAM_URL_PATTERNS }
 );
 
 // Capture the Referer + User-Agent the browser sends with each stream request
@@ -187,7 +194,7 @@ chrome.webRequest.onBeforeSendHeaders.addListener(
       schedulePersist();
     }
   },
-  { urls: STREAM_URL_PATTERNS, types: ["xmlhttprequest", "media", "other"] },
+  { urls: STREAM_URL_PATTERNS },
   ["requestHeaders", "extraHeaders"]
 );
 
@@ -383,4 +390,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   state.netUrls.delete(tabId);
   state.domUrls.delete(tabId);
+});
+
+// When the user switches back to a tab, re-scan its media elements so
+// dynamically loaded / iframe players get picked up without a full reload.
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  if (tabId == null) return;
+  chrome.tabs.sendMessage(tabId, { action: "scanMedia" }, () => {
+    void chrome.runtime.lastError; // content script may not be injected yet
+  });
 });

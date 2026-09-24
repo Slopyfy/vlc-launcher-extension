@@ -4,7 +4,7 @@
 ; Run: iscc setup.iss
 
 #define MyAppName "VLC Launcher Service"
-#define MyAppVersion "0.2"
+#define MyAppVersion "0.3"
 #define MyAppPublisher "Binarique Ltd"
 #define MyAppExeName "VlcLauncherService.exe"
 

@@ -16,7 +16,7 @@
 - **Process pile-up** — probing and format requests no longer spawn a new yt-dlp process on every poll.
 - **HLS/CDN links** — VLC now sends the browser's `User-Agent` and `Referer`, so protected streams that IDM could download are now accepted.
 
-## VLC Launcher Service v0.2
+## VLC Launcher Service v0.3
 
 ### New
 - `/health` endpoint for status checks.

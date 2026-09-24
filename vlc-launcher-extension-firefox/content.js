@@ -23,6 +23,8 @@ if (!chrome.runtime?.id) {
     return true;
   }
 
+  let lastSentKey = '';
+
   function scanMediaSources() {
     const mediaElements = document.querySelectorAll('video, audio');
     const sources = new Set();
@@ -41,8 +43,14 @@ if (!chrome.runtime?.id) {
       titles[location.href] = document.title.replace(' - YouTube', '').trim();
     }
 
+    // Only report when something changed so the periodic fallback scan
+    // doesn't wake the background worker with duplicate data every cycle.
     if (sources.size > 0) {
-      safeSend({ action: "addStreams", urls: Array.from(sources), titles });
+      const key = Array.from(sources).sort().join('\n') + '\n' + JSON.stringify(titles);
+      if (key !== lastSentKey) {
+        lastSentKey = key;
+        safeSend({ action: "addStreams", urls: Array.from(sources), titles });
+      }
     }
   }
 
@@ -59,6 +67,14 @@ if (!chrome.runtime?.id) {
     });
     observer.observe(document.body, { childList: true, subtree: true });
   }
+
+  // Safety net: re-scan on a timer so dynamically added / iframe players are
+  // still detected even if the MutationObserver gets disconnected or the tab
+  // was backgrounded and restored. The background dedupes, so this is cheap.
+  setInterval(() => {
+    if (!chrome.runtime?.id) return;
+    scanMediaSources();
+  }, 2500);
 
   // Listen for messages from background/popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -81,7 +97,7 @@ if (!chrome.runtime?.id) {
       }
       sendResponse({ paused: true });
     }
-    return true; // keep channel open for async
+    return false; // synchronous responses only
   });
 
 } // end context guard
