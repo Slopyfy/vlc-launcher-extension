@@ -57,22 +57,34 @@ if (!chrome.runtime?.id) {
   // Run on page load
   scanMediaSources();
 
+  let lastWake = 0;
+  function wakeBackground() {
+    const now = Date.now();
+    if (now - lastWake < 1000) return;
+    lastWake = now;
+    safeSend({ action: "wake" });
+  }
+
   // Watch for dynamically added media elements (debounced)
   if (document.body) {
     let debounceTimer = null;
     const observer = new MutationObserver(() => {
       if (!chrome.runtime?.id) { observer.disconnect(); return; }
+      // Wake the background worker immediately on DOM changes so its
+      // webRequest listener is active again after the browser has been idle.
+      wakeBackground();
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => scanMediaSources(), 500);
     });
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  // Safety net: re-scan on a timer so dynamically added / iframe players are
-  // still detected even if the MutationObserver gets disconnected or the tab
-  // was backgrounded and restored. The background dedupes, so this is cheap.
+  // Safety net: periodically wake the background worker (so detection keeps
+  // working after the browser idled and the worker was suspended) and re-scan
+  // for dynamically added / iframe players.
   setInterval(() => {
     if (!chrome.runtime?.id) return;
+    wakeBackground();
     scanMediaSources();
   }, 2500);
 

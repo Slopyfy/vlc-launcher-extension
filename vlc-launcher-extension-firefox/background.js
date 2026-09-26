@@ -247,6 +247,13 @@ function prefetchFormats(url) {
 
 // ── Message handlers ──────────────────────────────────────────
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // --- wake: content script pings us so a suspended worker wakes up and its
+  // webRequest listener is active again (fixes streams not detected after idle).
+  if (request.action === "wake") {
+    sendResponse({ ok: true });
+    return false;
+  }
+
   // --- getStreams: return merged URLs for a tab (deduplicated) ---
   if (request.action === "getStreams") {
     const tabId = request.tabId;

@@ -18,8 +18,20 @@ function showServiceBanner() {
   const banner = document.createElement('div');
   banner.id = 'serviceBanner';
   banner.style.cssText = 'background:#3a1d00;color:#ffb877;border:1px solid #ff9800;border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;line-height:1.5;';
-  banner.innerHTML = '⚠️ <b>VLC Launcher Service</b> isn\'t running.<br>Download & install it from the ' +
-    '<a href="' + SERVICE_SETUP_URL + '" target="_blank" style="color:#ffb877;font-weight:700;">releases page</a>';
+  banner.appendChild(document.createTextNode('⚠️ '));
+  const b = document.createElement('b');
+  b.textContent = 'VLC Launcher Service';
+  banner.appendChild(b);
+  banner.appendChild(document.createTextNode(" isn't running."));
+  banner.appendChild(document.createElement('br'));
+  banner.appendChild(document.createTextNode('Download & install it from the '));
+  const link = document.createElement('a');
+  link.href = SERVICE_SETUP_URL;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.style.cssText = 'color:#ffb877;font-weight:700;';
+  link.textContent = 'releases page';
+  banner.appendChild(link);
   const ref = document.getElementById('refreshBtn');
   if (ref) ref.parentNode.insertBefore(banner, ref);
 }
@@ -316,8 +328,16 @@ function launchUrl(url, format = null, onDone = null) {
       const err = response?.error || 'Failed to launch';
       status.style.color = 'red';
       if (isServiceMissing(err)) {
-        status.innerHTML = '❌ ' + err + '<br>Is the VLC Launcher Service running? ' +
-          '<a href="' + SERVICE_SETUP_URL + '" target="_blank">Download it from the releases page</a>';
+        status.replaceChildren();
+        status.appendChild(document.createTextNode('❌ ' + err));
+        status.appendChild(document.createElement('br'));
+        status.appendChild(document.createTextNode('Is the VLC Launcher Service running? '));
+        const link = document.createElement('a');
+        link.href = SERVICE_SETUP_URL;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'Download it from the releases page';
+        status.appendChild(link);
       } else {
         status.textContent = '❌ ' + err;
       }

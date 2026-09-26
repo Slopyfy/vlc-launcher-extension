@@ -1,5 +1,14 @@
 # Changelog
 
+## VLC Launcher Extension v1.2 — Chrome & Firefox
+
+### Fixed
+- **HLS/DASH links with query strings** — URLs like `…/index.m3u8?token=…` (VidSrc/Vidify) are now detected; previously only path-token links were caught.
+- **Detection stopping after tab switches** — switching away and back no longer breaks detection.
+- **Detection after the browser idles** — the background listener is now woken from the page, so new streams are detected without reloading the tab (e.g. after watching in VLC for a while).
+- **Dynamically-loaded / iframe players** — now picked up without a full page refresh.
+- **Firefox lint warnings** — replaced `innerHTML` assignments with safe DOM APIs.
+
 ## VLC Launcher Extension v1.1 — Chrome & Firefox
 
 ### New
@@ -29,7 +38,7 @@
 
 ## Packaging
 
-`VlcLauncherService-Setup-v0.2.exe` now bundles:
+`VlcLauncherService-Setup-v0.3.exe` now bundles:
 - The VLC Launcher Service app
 - yt-dlp
 - ffmpeg
