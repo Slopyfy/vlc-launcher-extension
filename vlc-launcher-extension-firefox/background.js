@@ -1,11 +1,11 @@
 // background.js — VLC Launcher service worker
 
 // ── In-memory state (loaded from session storage on startup) ───
-const state = { netUrls: new Map(), domUrls: new Map(), qualities: new Map(), titles: new Map(), formats: new Map(), referers: new Map(), userAgent: null, seenAt: new Map() };
+const state = { netUrls: new Map(), domUrls: new Map(), qualities: new Map(), titles: new Map(), formats: new Map(), referers: new Map(), userAgent: null, seenAt: new Map(), subUrls: new Map() };
 
 (async function init() {
   try {
-    const all = await chrome.storage.session.get(['netUrls', 'domUrls', 'qualities', 'titles', 'formats', 'referers', 'userAgent', 'seenAt']);
+    const all = await chrome.storage.session.get(['netUrls', 'domUrls', 'qualities', 'titles', 'formats', 'referers', 'userAgent', 'seenAt', 'subUrls']);
     if (all.netUrls) state.netUrls = new Map(JSON.parse(all.netUrls));
     if (all.domUrls) state.domUrls = new Map(JSON.parse(all.domUrls));
     if (all.qualities) state.qualities = new Map(JSON.parse(all.qualities));
@@ -14,6 +14,7 @@ const state = { netUrls: new Map(), domUrls: new Map(), qualities: new Map(), ti
     if (all.referers) state.referers = new Map(JSON.parse(all.referers));
     if (all.userAgent) state.userAgent = all.userAgent;
     if (all.seenAt) state.seenAt = new Map(JSON.parse(all.seenAt));
+    if (all.subUrls) state.subUrls = new Map(JSON.parse(all.subUrls));
   } catch {}
 })();
 
@@ -26,7 +27,8 @@ function persist() {
     formats: JSON.stringify([...state.formats]),
     referers: JSON.stringify([...state.referers]),
     userAgent: state.userAgent,
-    seenAt: JSON.stringify([...state.seenAt])
+    seenAt: JSON.stringify([...state.seenAt]),
+    subUrls: JSON.stringify([...state.subUrls].map(([k,v]) => [k, [...v]]))
   }).catch(() => {});
 }
 
@@ -94,10 +96,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   let url = info.linkUrl || info.srcUrl || info.pageUrl;
   if (url && tab?.id) {
     const referer = state.referers.get(url) || info.pageUrl || null;
+    const subtitles = Array.from(state.subUrls.get(tab.id) || []);
     fetch('http://localhost:8765/launch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, alwaysOnTop: false, fullscreen: false, loop: false, referer, userAgent: state.userAgent })
+      body: JSON.stringify({ url, alwaysOnTop: false, fullscreen: false, loop: false, referer, userAgent: state.userAgent, subtitles })
     }).catch(() => {});
   }
 });
@@ -147,8 +150,32 @@ const STREAM_URL_PATTERNS = [
   "*://*/*.ogg?*",
   "*://*/*.m4a?*",
   "*://*/*.opus?*",
-  "*://*/*.wma?*"
+  "*://*/*.wma?*",
+  // Subtitles (tracked separately, not shown in the stream list)
+  "*://*/*.srt",
+  "*://*/*.vtt",
+  "*://*/*.ass",
+  "*://*/*.ssa",
+  "*://*/*.sub",
+  "*://*/*.idx",
+  "*://*/*.srt?*",
+  "*://*/*.vtt?*",
+  "*://*/*.ass?*",
+  "*://*/*.ssa?*",
+  "*://*/*.sub?*",
+  "*://*/*.idx?*"
 ];
+
+// Subtitles are tracked separately so they don't appear in the stream list
+// or the badge count, and are cleared when a new video starts.
+function isSubtitleUrl(url) {
+  return /\.(srt|vtt|ass|ssa|sub|idx)(?:[?#]|$)/i.test(url);
+}
+
+// A master playlist marks the start of a new video (SPA navigation).
+function isMasterUrl(url) {
+  return /master\.m3u8(?:[?#]|$)/i.test(url);
+}
 
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
@@ -157,6 +184,24 @@ chrome.webRequest.onBeforeRequest.addListener(
     if (tabId > 0) {
       // Skip blob URLs — they only work inside the browser
       if (url.startsWith('blob:')) return;
+
+      // Subtitle tracks: remember them for the current video, but keep them
+      // out of the stream list and the badge.
+      if (isSubtitleUrl(url)) {
+        if (!state.subUrls.has(tabId)) state.subUrls.set(tabId, new Set());
+        const subs = state.subUrls.get(tabId);
+        if (!subs.has(url)) {
+          subs.add(url);
+          schedulePersist();
+        }
+        return;
+      }
+
+      // A new master playlist means a new video: drop the previous subtitles.
+      if (isMasterUrl(url)) {
+        state.subUrls.delete(tabId);
+      }
+
       if (!state.netUrls.has(tabId)) {
         state.netUrls.set(tabId, new Set());
       }
@@ -286,6 +331,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const tabId = request.tabId;
     state.netUrls.delete(tabId);
     state.domUrls.delete(tabId);
+    state.subUrls.delete(tabId);
     updateBadge(tabId);
     schedulePersist();
     sendResponse({ cleared: true });
@@ -342,6 +388,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const format = request.format || null;
     const referer = request.referer || state.referers.get(url) || null;
     const userAgent = request.userAgent || state.userAgent || null;
+    const subtitles = Array.from(state.subUrls.get(tabId) || []);
     if (!url) {
       sendResponse({ success: false, error: "No URL provided." });
       return false;
@@ -349,7 +396,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetch("http://localhost:8765/launch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, alwaysOnTop, fullscreen, loop, speed, format, referer, userAgent }),
+      body: JSON.stringify({ url, alwaysOnTop, fullscreen, loop, speed, format, referer, userAgent, subtitles }),
       signal: AbortSignal.timeout(60000)
     })
       .then(async (res) => {
@@ -389,6 +436,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'loading') {
     state.netUrls.delete(tabId);
     state.domUrls.delete(tabId);
+    state.subUrls.delete(tabId);
     updateBadge(tabId);
     schedulePersist();
   }
@@ -397,6 +445,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   state.netUrls.delete(tabId);
   state.domUrls.delete(tabId);
+  state.subUrls.delete(tabId);
 });
 
 // When the user switches back to a tab, re-scan its media elements so

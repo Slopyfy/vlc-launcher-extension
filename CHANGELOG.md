@@ -1,6 +1,11 @@
 # Changelog
 
-## VLC Launcher Extension v1.2 — Chrome & Firefox
+## VLC Launcher Extension v1.3.0 — Chrome & Firefox
+
+### New
+- **Subtitle support** — subtitle tracks (`.srt`, `.vtt`, `.ass`, `.ssa`, `.sub`, `.idx`) are now detected, downloaded by the service with the browser's `User-Agent`/`Referer`, and passed to VLC via `--sub-file`. Subtitles stay hidden from the stream list and badge, and are cleared automatically when a new video starts.
+
+## VLC Launcher Extension v1.2.1 — Chrome & Firefox
 
 ### Fixed
 - **HLS/DASH links with query strings** — URLs like `…/index.m3u8?token=…` (VidSrc/Vidify) are now detected; previously only path-token links were caught.

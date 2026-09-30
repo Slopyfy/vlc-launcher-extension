@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
@@ -23,6 +25,7 @@ public static class VlcServer
     private static readonly ConcurrentDictionary<string, Lazy<Task<List<FormatInfo>>>> FmtTasks = new();
     private static readonly ConcurrentDictionary<string, byte> Probing = new();
     private static bool _ffmpegOk;
+    private static readonly HttpClient _httpClient = new();
 
     // Browser-like UA so protected CDN/HLS links accept VLC's requests.
     private const string DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -169,6 +172,20 @@ public static class VlcServer
                 argsList.Add($"--input-slave=\"{audioUrl}\"");
             }
 
+            // Download subtitle tracks the extension detected, so VLC can use
+            // them as local files (most reliable for protected CDN subtitles).
+            var subtitleFiles = new List<string>();
+            if (j?.Subtitles != null)
+            {
+                foreach (var sub in j.Subtitles)
+                {
+                    if (string.IsNullOrWhiteSpace(sub)) continue;
+                    var local = await DownloadSubtitleAsync(sub, referer, userAgent);
+                    if (local != null) subtitleFiles.Add(local);
+                    else LogCallback?.Invoke($"[Subtitle] Failed to download: {sub}");
+                }
+            }
+
             argsList.Add("--no-video-title-show");
             argsList.Add("--one-instance");
             argsList.Add("--play-and-exit");
@@ -181,6 +198,11 @@ public static class VlcServer
 
             if (!string.IsNullOrWhiteSpace(referer))
                 argsList.Add($"--http-referrer=\"{referer}\"");
+
+            foreach (var sub in subtitleFiles)
+            {
+                argsList.Add($"--sub-file=\"{sub}\"");
+            }
 
             if (alwaysOnTop) argsList.Add("--video-on-top");
             if (fullscreen) argsList.Add("--fullscreen");
@@ -251,6 +273,36 @@ public static class VlcServer
             if (File.Exists(p)) return p;
         }
         return "vlc"; // Fallback to system environment variable
+    }
+
+    // Downloads a subtitle to a temp file using the browser's headers so
+    // protected CDN subtitle URLs resolve. Returns the local path or null.
+    private static async Task<string?> DownloadSubtitleAsync(string url, string? referer, string? userAgent)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            string ua = !string.IsNullOrWhiteSpace(userAgent) ? userAgent : DefaultUserAgent;
+            req.Headers.TryAddWithoutValidation("User-Agent", ua);
+            if (!string.IsNullOrWhiteSpace(referer))
+                req.Headers.TryAddWithoutValidation("Referer", referer);
+
+            using var resp = await _httpClient.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            var bytes = await resp.Content.ReadAsByteArrayAsync();
+            var path = new Uri(url).AbsolutePath;
+            var ext = Path.GetExtension(path);
+            if (string.IsNullOrWhiteSpace(ext) || ext.Length > 6) ext = ".vtt";
+
+            var file = Path.Combine(Path.GetTempPath(), "vlc_sub_" + Guid.NewGuid().ToString("N") + ext);
+            await File.WriteAllBytesAsync(file, bytes);
+            return file;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static void KillExistingVlcProcesses()
@@ -523,6 +575,7 @@ public class LaunchReqModel
     public string? FormatId { get; set; }
     public string? Referer { get; set; }
     public string? UserAgent { get; set; }
+    public List<string>? Subtitles { get; set; }
 }
 
 public class FormatInfo
