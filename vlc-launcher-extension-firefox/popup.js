@@ -114,13 +114,14 @@ function startPolling() {
       if (!isPollingActive) return;
 
       const streams = response?.streams || [];
-      if (streams.length > 0) {
-        renderStreams(streams);
+      const subtitles = response?.subtitles || [];
+      if (streams.length > 0 || subtitles.length > 0) {
+        renderStreams(streams, subtitles);
         pollTimer = setTimeout(tick, 8000);
       } else if (attempt < delays.length) {
         pollTimer = setTimeout(tick, delays[attempt++]);
       } else {
-        renderStreams([]);
+        renderStreams([], []);
         pollTimer = setTimeout(tick, 8000);
       }
     });
@@ -141,14 +142,40 @@ function isYoutubeUrl(url) {
   return /youtube\.com\/watch|youtu\.be\//i.test(url);
 }
 
-function renderStreams(streams) {
+function renderStreams(streams, subtitles) {
   const container = document.getElementById('streamList');
   container.innerHTML = '';
 
-  if (!streams || streams.length === 0) {
+  const subs = subtitles || [];
+
+  if ((!streams || streams.length === 0) && subs.length === 0) {
     container.innerHTML = '<p>No streams detected. Navigate to a page with audio/video.</p>';
     return;
   }
+
+  // Detected subtitle tracks: shown for confirmation only. They are not
+  // counted as streams and are attached to VLC automatically on launch.
+  if (subs.length > 0) {
+    const subBox = document.createElement('div');
+    subBox.style.cssText = 'border:1px solid #3a4a5a;background:#16222e;border-radius:6px;padding:6px 8px;margin-bottom:8px;';
+    const subTitle = document.createElement('div');
+    subTitle.style.cssText = 'font-size:11px;font-weight:700;color:#8ecaff;margin-bottom:4px;';
+    subTitle.textContent = `🎞 ${subs.length} subtitle track${subs.length > 1 ? 's' : ''} detected — will load in VLC`;
+    subBox.appendChild(subTitle);
+    const subUl = document.createElement('ul');
+    subs.forEach(sub => {
+      const subLi = document.createElement('li');
+      subLi.style.cssText = 'list-style:none;color:#9fb3c8;font-size:10px;padding:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      const ext = (sub.match(/\.([a-z0-9]+)(?:[?#]|$)/i) || [,''])[1].toUpperCase();
+      subLi.textContent = (ext ? ext + ' · ' : '') + smartTruncate(sub);
+      subLi.title = sub;
+      subUl.appendChild(subLi);
+    });
+    subBox.appendChild(subUl);
+    container.appendChild(subBox);
+  }
+
+  if (!streams || streams.length === 0) return;
 
   // Newest-detected first, so a freshly loaded video's links appear on top
   // even when the page reuses nearly identical signed URLs.

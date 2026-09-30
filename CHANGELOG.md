@@ -30,6 +30,14 @@
 - **Process pile-up** — probing and format requests no longer spawn a new yt-dlp process on every poll.
 - **HLS/CDN links** — VLC now sends the browser's `User-Agent` and `Referer`, so protected streams that IDM could download are now accepted.
 
+## VLC Launcher Service v0.4
+
+### New
+- **Subtitle support** — the `/launch` endpoint now accepts a `subtitles` array. Each track is downloaded with the browser's `User-Agent`/`Referer` and attached to VLC via `--sub-file`.
+
+### Changed
+- Service, assembly, and file version bumped to `0.4.0`; installer to `v0.4`.
+
 ## VLC Launcher Service v0.3
 
 ### New
@@ -43,7 +51,7 @@
 
 ## Packaging
 
-`VlcLauncherService-Setup-v0.3.exe` now bundles:
+`VlcLauncherService-Setup-v0.4.exe` now bundles:
 - The VLC Launcher Service app
 - yt-dlp
 - ffmpeg

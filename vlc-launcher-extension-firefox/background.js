@@ -322,7 +322,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Newest-detected streams first so a freshly loaded video's links
     // (which may look nearly identical to old ones) appear on top.
     streams.sort((a, b) => (b.seenAt || 0) - (a.seenAt || 0));
-    sendResponse({ streams });
+    // Also report detected subtitle tracks for this tab so the popup can
+    // show them (they're attached to VLC, not counted as streams).
+    const subtitles = state.subUrls.has(tabId) ? Array.from(state.subUrls.get(tabId)) : [];
+    sendResponse({ streams, subtitles });
     return false; // sync
   }
 
